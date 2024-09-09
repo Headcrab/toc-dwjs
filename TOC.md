@@ -52,6 +52,32 @@ for (let i = 1; i <= 6; i++) {
     headerLevelSelect.createEl('option', { value: i, text: `До уровня ${i}` });
 }
 
+// Добавьте эти элементы после выпадающего списка для выбора уровня заголовков
+const numberedListContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
+const numberedListCheckbox = numberedListContainer.createEl('input', { type: 'checkbox', id: 'numbered-list-checkbox' });
+numberedListContainer.createEl('label', { text: 'Нумерованные списки', for: 'numbered-list-checkbox' });
+const numberedListLevelSelect = numberedListContainer.createEl('select', { id: 'numbered-list-level-select', cls: 'hidden' });
+for (let i = 1; i <= 6; i++) {
+    numberedListLevelSelect.createEl('option', { value: i, text: `До уровня ${i}` });
+}
+
+const bulletListContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
+const bulletListCheckbox = bulletListContainer.createEl('input', { type: 'checkbox', id: 'bullet-list-checkbox' });
+bulletListContainer.createEl('label', { text: 'Маркированные списки', for: 'bullet-list-checkbox' });
+const bulletListLevelSelect = bulletListContainer.createEl('select', { id: 'bullet-list-level-select', cls: 'hidden' });
+for (let i = 1; i <= 6; i++) {
+    bulletListLevelSelect.createEl('option', { value: i, text: `До уровня ${i}` });
+}
+
+// Добавьте обработчики событий для чекбоксов
+numberedListCheckbox.addEventListener('change', () => {
+    numberedListLevelSelect.classList.toggle('hidden', !numberedListCheckbox.checked);
+});
+
+bulletListCheckbox.addEventListener('change', () => {
+    bulletListLevelSelect.classList.toggle('hidden', !bulletListCheckbox.checked);
+});
+
 // Создаем кнопку генерации
 const generateButton = controlsContainer.createEl('button', { cls: 'toc-generate-button', text: 'Сгенерировать' });
 
@@ -245,6 +271,30 @@ style.textContent = `
         background-color: var(--interactive-accent) !important;
         color: var(--text-on-accent);
     }
+    .toc-output ol, .toc-output ul {
+        margin-left: 20px;
+        padding-left: 0;
+    }
+    .toc-output li {
+        margin-bottom: 4px;
+    }
+    .toc-output .list-level-1 { margin-left: 0; }
+    .toc-output .list-level-2 { margin-left: 16px; }
+    .toc-output .list-level-3 { margin-left: 32px; }
+    .toc-output .list-level-4 { margin-left: 48px; }
+    .toc-output .list-level-5 { margin-left: 64px; }
+    .toc-output .list-level-6 { margin-left: 80px; }
+    .toc-select-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .toc-select-container input[type="checkbox"] {
+        margin-right: 4px;
+    }
+    .toc-select-container select {
+        margin-left: 8px;
+    }
 `;
 
 // Функция для очистки текста от тегов и лишних пробелов
@@ -306,6 +356,10 @@ async function generateTOC() {
         generateButton.textContent = 'Остановить';
         const mode = modeSelect.value;
         const maxHeaderLevel = parseInt(headerLevelSelect.value);
+        const includeNumberedLists = numberedListCheckbox.checked;
+        const maxNumberedListLevel = includeNumberedLists ? parseInt(numberedListLevelSelect.value) : 0;
+        const includeBulletLists = bulletListCheckbox.checked;
+        const maxBulletListLevel = includeBulletLists ? parseInt(bulletListLevelSelect.value) : 0;
         
         let files;
         switch (mode) {
@@ -365,6 +419,8 @@ async function generateTOC() {
                 const content = await app.vault.read(file);
                 const lines = content.split('\n');
                 let insideCodeBlock = false;
+                let currentListLevel = 0;
+                let listType = null; // 'numbered' или 'bullet'
 
                 for (const line of lines) {
                     if (line.trim().startsWith('```')) {
@@ -374,7 +430,11 @@ async function generateTOC() {
                     
                     if (insideCodeBlock) continue;
                     
-                    if (line.trim() === '') continue;
+                    if (line.trim() === '') {
+                        currentListLevel = 0;
+                        listType = null;
+                        continue;
+                    }
 
                     if (line.match(/^#+\s/)) {
                         const level = line.match(/^#+/)[0].length;
@@ -387,7 +447,44 @@ async function generateTOC() {
                                 fileHasContent = true;
                             }
                         }
+                        currentListLevel = 0;
+                        listType = null;
+                    } else if (line.match(/^(\s*)([-*+]|\d+\.)\s/)) {
+                        const match = line.match(/^(\s*)([-*+]|\d+\.)\s/);
+                        const indentLevel = Math.floor(match[1].length / 2) + 1;
+                        const newListType = match[2].match(/\d+\./) ? 'numbered' : 'bullet';
+                        
+                        const maxAllowedLevel = newListType === 'numbered' ? maxNumberedListLevel : maxBulletListLevel;
+                        
+                        if (indentLevel <= maxAllowedLevel && 
+                            ((newListType === 'numbered' && includeNumberedLists) || 
+                             (newListType === 'bullet' && includeBulletLists))) {
+                            if (listType !== newListType || indentLevel !== currentListLevel) {
+                                if (currentListLevel > 0) {
+                                    fileContent.push(`</${listType === 'numbered' ? 'ol' : 'ul'}>`.repeat(currentListLevel));
+                                }
+                                listType = newListType;
+                                currentListLevel = indentLevel;
+                                fileContent.push(`<${listType === 'numbered' ? 'ol' : 'ul'} class="list-level-${indentLevel}">`);
+                            }
+                            
+                            const listItemText = cleanText(line.replace(/^(\s*)([-*+]|\d+\.)\s/, ''));
+                            if (listItemText) {
+                                fileContent.push(`<li>${listItemText}</li>`);
+                                fileHasContent = true;
+                            }
+                        }
+                    } else {
+                        if (currentListLevel > 0) {
+                            fileContent.push(`</${listType === 'numbered' ? 'ol' : 'ul'}>`.repeat(currentListLevel));
+                            currentListLevel = 0;
+                            listType = null;
+                        }
                     }
+                }
+
+                if (currentListLevel > 0) {
+                    fileContent.push(`</${listType === 'numbered' ? 'ol' : 'ul'}>`.repeat(currentListLevel));
                 }
                 
                 if (fileContent.length > 0) {
@@ -639,4 +736,3 @@ function updateDropdown(dropdown, items, input) {
         dropdown.classList.add('hidden');
     }
 }
-```
