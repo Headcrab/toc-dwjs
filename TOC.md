@@ -15,9 +15,6 @@ container.empty();
 // Создаем основной контейнер
 const mainContainer = container.createEl('div', { cls: 'toc-main-container' });
 
-// Создаем заголовок
-const header = mainContainer.createEl('h2', { text: 'Генератор оглавления', cls: 'toc-header' });
-
 // Создаем контейнер для элементов управления
 const controlsContainer = mainContainer.createEl('div', { cls: 'toc-controls' });
 
@@ -65,23 +62,18 @@ const outputContainer = mainContainer.createEl('div', { cls: 'toc-output' });
 const style = container.createEl('style');
 style.textContent = `
     .toc-main-container {
-        max-width: 800px;
+        max-width: 100%;
         margin: 0 auto;
-        padding: 20px;
-        background-color: #2c2c2c;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .toc-header {
-        color: #e0e0e0;
-        margin-bottom: 20px;
-        text-align: center;
+        padding: 24px;
+        background-color: var(--background-primary);
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
     .toc-controls {
         display: flex;
         flex-wrap: wrap;
-        gap: 15px;
-        margin-bottom: 20px;
+        gap: 16px;
+        margin-bottom: 24px;
         align-items: flex-end;
     }
     .toc-select-container {
@@ -90,40 +82,49 @@ style.textContent = `
     }
     .toc-select-container label {
         display: block;
-        margin-bottom: 5px;
-        color: #b0b0b0;
+        margin-bottom: 8px;
+        color: var(--text-muted);
+        font-size: 14px;
     }
-    .toc-select-container select {
+    .toc-select-container select,
+    .toc-select-container input[type="text"] {
         width: 100%;
-        padding: 8px;
-        border-radius: 4px;
-        background-color: #3a3a3a;
-        color: #e0e0e0;
-        border: 1px solid #4a4a4a;
-        height: 40px;
-    }
-    .toc-select-container select[multiple] {
-        height: auto;
-        min-height: 100px;
-    }
-    .toc-generate-button {
-        padding: 6px 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background-color: var(--background-secondary);
+        color: var(--text-normal);
+        border: 1px solid var(--background-modifier-border);
         height: 40px;
         font-size: 14px;
-        background-color: #4a9eff;
-        color: white;
+        transition: all 0.3s ease;
+    }
+    .toc-select-container select:focus,
+    .toc-select-container input[type="text"]:focus {
+        outline: none;
+        border-color: var(--interactive-accent);
+        box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+    }
+    .toc-generate-button {
+        padding: 10px 16px;
+        height: 40px;
+        font-size: 14px;
+        background-color: var(--interactive-accent);
+        color: var(--text-on-accent);
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         cursor: pointer;
-        transition: background-color 0.3s;
+        transition: background-color 0.3s ease;
         align-self: flex-end;
     }
+    .toc-generate-button:hover {
+        background-color: var(--interactive-accent-hover);
+    }
     .toc-output {
-        background-color: #3a3a3a;
-        border-radius: 4px;
-        padding: 15px;
-        color: #e0e0e0;
-        max-height: 500px;
+        background-color: var(--background-secondary);
+        border-radius: 8px;
+        padding: 16px;
+        color: var(--text-normal);
+        max-height: 600px;
         overflow-y: auto;
     }
     .toc-output p {
@@ -132,81 +133,89 @@ style.textContent = `
     }
     .toc-output .file-link {
         font-weight: bold;
-        margin-top: 10px;
+        margin-top: 12px;
     }
     .toc-output .header-link {
         display: block;
+        padding: 4px 0;
     }
     .toc-output .header-level-1 { margin-left: 0; }
-    .toc-output .header-level-2 { margin-left: 20px; }
-    .toc-output .header-level-3 { margin-left: 40px; }
-    .toc-output .header-level-4 { margin-left: 60px; }
-    .toc-output .header-level-5 { margin-left: 80px; }
-    .toc-output .header-level-6 { margin-left: 100px; }
+    .toc-output .header-level-2 { margin-left: 16px; }
+    .toc-output .header-level-3 { margin-left: 32px; }
+    .toc-output .header-level-4 { margin-left: 48px; }
+    .toc-output .header-level-5 { margin-left: 64px; }
+    .toc-output .header-level-6 { margin-left: 80px; }
     .toc-output a {
-        color: #4a9eff;
+        color: var(--text-accent);
         text-decoration: none;
+        transition: color 0.2s ease;
     }
     .toc-output a:hover {
-        text-decoration: underline;
+        color: var(--text-accent-hover);
     }
     .file-content {
-        margin-left: 20px;
+        margin-left: 16px;
     }
     .toggle-button {
         background: none;
         border: none;
-        color: #4a9eff;
+        color: var(--text-accent);
         cursor: pointer;
         font-size: 16px;
-        padding: 0 5px;
+        padding: 0 8px;
+        transition: color 0.2s ease;
+    }
+    .toggle-button:hover {
+        color: var(--text-accent-hover);
     }
     .file-header {
         display: flex;
         align-items: center;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
     }
     .file-header a {
         flex-grow: 1;
     }
     .broken-link {
-        color: #ff4a4a;
+        color: var(--text-error);
         text-decoration: line-through;
     }
     .toc-progress-container {
-        margin-top: 10px;
-        background-color: #444;
-        border-radius: 4px;
-        padding: 3px;
+        margin-top: 16px;
+        background-color: var(--background-modifier-border);
+        border-radius: 8px;
+        padding: 4px;
         display: none;
     }
     .toc-progress-bar {
-        height: 20px;
-        background-color: #4a9eff;
-        border-radius: 2px;
+        height: 8px;
+        background-color: var(--interactive-accent);
+        border-radius: 4px;
         width: 0%;
         transition: width 0.3s ease-in-out;
     }
     .toc-progress-text {
         text-align: center;
-        margin-top: 5px;
-        color: #e0e0e0;
+        margin-top: 8px;
+        color: var(--text-muted);
+        font-size: 12px;
     }
     .hidden {
         display: none;
     }
     .current-file-display {
         width: 100%;
-        padding: 8px;
-        border-radius: 4px;
-        background-color: #3a3a3a;
-        color: #e0e0e0;
-        border: 1px solid #4a4a4a;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background-color: var(--background-secondary);
+        color: var(--text-normal);
+        border: 1px solid var(--background-modifier-border);
         height: 40px;
-        line-height: 24px;
+        line-height: 20px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-size: 14px;
     }
     .autocomplete-container {
         position: relative;
@@ -216,23 +225,25 @@ style.textContent = `
         top: 100%;
         left: 0;
         right: 0;
-        background-color: #3a3a3a;
-        border: 1px solid #4a4a4a;
+        background-color: var(--background-secondary);
+        border: 1px solid var(--background-modifier-border);
         border-top: none;
         max-height: 200px;
         overflow-y: auto;
         z-index: 1000;
+        border-radius: 0 0 8px 8px;
     }
     .autocomplete-dropdown li {
-        padding: 5px 10px;
+        padding: 8px 12px;
         cursor: pointer;
+        transition: background-color 0.2s ease;
     }
     .autocomplete-dropdown li:hover {
-        background-color: #4a4a4a;
+        background-color: var(--background-modifier-hover);
     }
     .autocomplete-active {
-        background-color: #4a9eff !important;
-        color: #ffffff;
+        background-color: var(--interactive-accent) !important;
+        color: var(--text-on-accent);
     }
 `;
 
@@ -628,4 +639,4 @@ function updateDropdown(dropdown, items, input) {
         dropdown.classList.add('hidden');
     }
 }
-
+```
