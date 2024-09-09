@@ -31,26 +31,16 @@ const modeSelect = modeSelectContainer.createEl('select', { id: 'mode-select' })
 
 // Создаем контейнер для выбора папки
 const folderSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
-folderSelectContainer.createEl('label', { text: 'Выберите папку:', for: 'folder-select' });
-const folderSelect = folderSelectContainer.createEl('select', { id: 'folder-select' });
-getFolders().forEach(folder => {
-    folderSelect.createEl('option', { value: folder, text: folder });
-});
+const folderInput = createAutocompleteInput(folderSelectContainer, 'Выберите папку:', 'folder-select', 'Введите путь к папке', getFolders);
 
 // Создаем контейнер для выбора файлов
 const fileSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
-fileSelectContainer.createEl('label', { text: 'Выберите файлы:', for: 'file-select' });
-const fileSelect = fileSelectContainer.createEl('select', { id: 'file-select', multiple: true });
+const fileInput = createAutocompleteInput(fileSelectContainer, 'Выберите файлы:', 'file-select', 'Введите пути к файлам через запятую', getFiles);
 
 // Функция для получения списка файлов
 function getFiles() {
     return app.vault.getMarkdownFiles().map(f => f.path);
 }
-
-// Заполняем список файлов
-getFiles().forEach(file => {
-    fileSelect.createEl('option', { value: file, text: file });
-});
 
 // Создаем контейнер для отображения текущего файла
 const currentFileContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
@@ -218,6 +208,32 @@ style.textContent = `
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    .autocomplete-container {
+        position: relative;
+    }
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: #3a3a3a;
+        border: 1px solid #4a4a4a;
+        border-top: none;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+    }
+    .autocomplete-dropdown li {
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+    .autocomplete-dropdown li:hover {
+        background-color: #4a4a4a;
+    }
+    .autocomplete-active {
+        background-color: #4a9eff !important;
+        color: #ffffff;
+    }
 `;
 
 // Функция для очистки текста от тегов и лишних пробелов
@@ -283,17 +299,15 @@ async function generateTOC() {
         let files;
         switch (mode) {
             case 'По папкам':
-                const folderPath = folderSelect.value;
+                const folderPath = folderInput.value;
                 files = app.vault.getFiles().filter(file => {
-                    const relativePath = file.path.slice(folderPath.length);
                     const isInFolder = file.path.startsWith(folderPath);
                     const isMarkdown = file.extension === 'md';
-                    const isDirectChild = relativePath.startsWith('/') || relativePath === '';
-                    return isInFolder && isMarkdown && isDirectChild;
+                    return isInFolder && isMarkdown;
                 });
                 break;
             case 'По файлам':
-                const selectedFiles = Array.from(fileSelect.selectedOptions).map(option => option.value);
+                const selectedFiles = fileInput.value.split(',').map(f => f.trim());
                 files = selectedFiles.map(path => app.vault.getAbstractFileByPath(path)).filter(file => file && file.extension === 'md');
                 break;
             case 'Текущий файл':
@@ -535,4 +549,83 @@ generateButton.addEventListener('click', async () => {
         isGenerating = false;
     }
 });
+
+// Функция для создания строки ввода с автодополнением
+function createAutocompleteInput(container, labelText, id, placeholder, getItems) {
+    container.createEl('label', { text: labelText, for: id });
+    const inputContainer = container.createEl('div', { cls: 'autocomplete-container' });
+    const input = inputContainer.createEl('input', { type: 'text', id: id, placeholder: placeholder });
+    const dropdown = inputContainer.createEl('ul', { cls: 'autocomplete-dropdown hidden' });
+
+    let currentFocus = -1;
+
+    input.addEventListener('input', () => {
+        const items = getItems().filter(item => item.toLowerCase().includes(input.value.toLowerCase()));
+        updateDropdown(dropdown, items, input);
+        currentFocus = -1;
+    });
+
+    input.addEventListener('focus', () => {
+        const items = getItems();
+        updateDropdown(dropdown, items, input);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+            currentFocus++;
+            addActive(dropdown.children);
+            e.preventDefault();
+        } else if (e.key === 'ArrowUp') {
+            currentFocus--;
+            addActive(dropdown.children);
+            e.preventDefault();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (currentFocus > -1) {
+                if (dropdown.children[currentFocus]) {
+                    dropdown.children[currentFocus].click();
+                }
+            }
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!inputContainer.contains(e.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    function addActive(items) {
+        if (!items) return false;
+        removeActive(items);
+        if (currentFocus >= items.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = (items.length - 1);
+        items[currentFocus].classList.add('autocomplete-active');
+    }
+
+    function removeActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove('autocomplete-active');
+        }
+    }
+
+    return input;
+}
+
+function updateDropdown(dropdown, items, input) {
+    dropdown.empty();
+    if (items.length > 0) {
+        items.forEach(item => {
+            const li = dropdown.createEl('li');
+            li.textContent = item;
+            li.addEventListener('click', () => {
+                input.value = item;
+                dropdown.classList.add('hidden');
+            });
+        });
+        dropdown.classList.remove('hidden');
+    } else {
+        dropdown.classList.add('hidden');
+    }
+}
 
