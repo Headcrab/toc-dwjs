@@ -1,6 +1,3 @@
----
-language: Dataviewjs для Obsidian
----
 # TOC
 
 ```dataviewjs
@@ -85,11 +82,11 @@ style.textContent = `
         background-color: #3a3a3a;
         color: #e0e0e0;
         border: 1px solid #4a4a4a;
-        height: 40px; /* Увеличиваем высоту выпадающих списков */
+        height: 40px;
     }
     .toc-generate-button {
         padding: 6px 12px;
-        height: 40px; /* Увеличиваем высоту кнопки для соответствия */
+        height: 40px;
         font-size: 14px;
         background-color: #4a9eff;
         color: white;
@@ -131,11 +128,38 @@ style.textContent = `
     .toc-output a:hover {
         text-decoration: underline;
     }
+    .file-content {
+        margin-left: 20px;
+    }
+    .toggle-button {
+        background: none;
+        border: none;
+        color: #4a9eff;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 0 5px;
+    }
+    .file-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    .file-header a {
+        flex-grow: 1;
+    }
+    .broken-link {
+        color: #ff4a4a;
+        text-decoration: line-through;
+    }
 `;
 
 // Функция для очистки текста от тегов и лишних пробелов
 function cleanText(text) {
-    return text.replace(/#\S+/g, '').trim();
+    return text
+        .replace(/#\s*/, '')
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+        .replace(/[*_`~]/g, '')
+        .trim();
 }
 
 // Добавляем индикатор прогресса
@@ -171,121 +195,248 @@ let isGenerating = false;
 
 // Оптимизированная функция генерации оглавления
 async function generateTOC() {
-    if (isGenerating) {
-        isGenerating = false;
-        generateButton.textContent = 'Сгенерировать';
-        progressText.textContent = 'Генерация прервана';
-        return;
-    }
-
-    isGenerating = true;
-    generateButton.textContent = 'Остановить';
-    const folderPath = folderSelect.value;
-    const maxHeaderLevel = parseInt(headerLevelSelect.value);
-    outputContainer.empty();
-    const files = app.vault.getFiles().filter(file => file.path.startsWith(folderPath) && file.extension === 'md');
-    
-    progressContainer.style.display = 'block';
-    progressBar.style.width = '0%';
-    progressText.textContent = 'Подготовка...';
-
-    const totalFiles = files.length;
-    let processedFiles = 0;
-
-    const updateProgress = () => {
-        const progress = (processedFiles / totalFiles) * 100;
-        progressBar.style.width = `${progress}%`;
-        progressText.textContent = `Обработано ${processedFiles} из ${totalFiles} файлов`;
-    };
-
-    const processFile = async (file) => {
-        if (!isGenerating) return null;
-
-        const content = await app.vault.read(file);
-        const lines = content.split("\n");
-        
-        let fileHasContent = false;
-        let fileContent = '';
-        
-        let isFirstNonEmptyLine = true;
-        let insideCodeBlock = false;
-        
-        for (const line of lines) {
-            if (!isGenerating) return null;
-
-            if (line.trim().startsWith('```')) {
-                insideCodeBlock = !insideCodeBlock;
-                continue;
-            }
-            
-            if (insideCodeBlock) continue;
-            
-            if (line.trim() === '') continue;
-            
-            if (line.startsWith('#')) {
-                const level = line.match(/^#+/)[0].length;
-                if (level <= maxHeaderLevel) {
-                    const headerText = line.replace(/^#+\s*/, '');
-                    const cleanHeaderText = cleanText(headerText);
-                    if (cleanHeaderText && !isFirstNonEmptyLine) {
-                        fileContent += `<p class="header-link header-level-${level}"><a href="${file.path}#${headerText}" class="internal-link">${cleanHeaderText}</a></p>`;
-                        fileHasContent = true;
-                    }
-                }
-            }
-            
-            isFirstNonEmptyLine = false;
-        }
-        
-        if (fileHasContent) {
-            return {
-                path: file.path,
-                basename: file.basename,
-                content: fileContent
-            };
+    try {
+        if (isGenerating) {
+            isGenerating = false;
+            generateButton.textContent = 'Сгенерировать';
+            progressText.textContent = 'Генерация прервана';
+            return;
         }
 
-        return null;
-    };
-
-    const batchSize = 10; // Размер пакета файлов для обработки
-    const fragment = document.createDocumentFragment();
-
-    for (let i = 0; i < totalFiles && isGenerating; i += batchSize) {
-        const batch = files.slice(i, i + batchSize);
-        const results = await Promise.all(batch.map(processFile));
+        isGenerating = true;
+        generateButton.textContent = 'Остановить';
+        const folderPath = folderSelect.value;
+        const maxHeaderLevel = parseInt(headerLevelSelect.value);
         
-        results.forEach(result => {
-            if (result) {
-                const fileContainer = fragment.appendChild(document.createElement('div'));
-                const fileLink = fileContainer.appendChild(document.createElement('p'));
-                fileLink.className = 'file-link';
-                fileLink.innerHTML = `<a href="${result.path}" class="internal-link">${result.basename}</a>`;
-                const contentDiv = fileContainer.appendChild(document.createElement('div'));
-                contentDiv.innerHTML = result.content;
-            }
+        if (!folderPath) {
+            isGenerating = false;
+            generateButton.textContent = 'Сгенерировать';
+            return;
+        }
+        
+        outputContainer.empty();
+        
+        const files = app.vault.getFiles().filter(file => {
+            const relativePath = file.path.slice(folderPath.length);
+            const isInFolder = file.path.startsWith(folderPath);
+            const isMarkdown = file.extension === 'md';
+            const isDirectChild = relativePath.startsWith('/') || relativePath === '';
+            
+            return isInFolder && isMarkdown && isDirectChild;
         });
 
-        processedFiles += batch.length;
-        updateProgress();
-        
-        // Вставляем накопленные изменения в DOM
-        outputContainer.appendChild(fragment);
-        
-        // Даем возможность обновиться интерфейсу
-        await new Promise(resolve => setTimeout(resolve, 0));
-    }
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Подготовка...';
 
-    progressContainer.style.display = 'none';
-    generateButton.textContent = 'Сгенерировать';
-    isGenerating = false;
+        const totalFiles = files.length;
+        let processedFiles = 0;
+
+        const updateProgress = () => {
+            const progress = (processedFiles / totalFiles) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `Обработано ${processedFiles} из ${totalFiles} файлов`;
+        };
+
+        const processFile = async (file) => {
+            try {
+                const fileContent = [];
+                let fileHasContent = false;
+
+                const content = await app.vault.read(file);
+                const lines = content.split('\n');
+                let insideCodeBlock = false;
+
+                for (const line of lines) {
+                    if (line.trim().startsWith('```')) {
+                        insideCodeBlock = !insideCodeBlock;
+                        continue;
+                    }
+                    
+                    if (insideCodeBlock) continue;
+                    
+                    if (line.trim() === '') continue;
+
+                    if (line.match(/^#+\s/)) {
+                        const level = line.match(/^#+/)[0].length;
+                        if (level <= maxHeaderLevel) {
+                            const headerText = line.replace(/^#+\s*/, '');
+                            const cleanHeaderText = cleanText(headerText);
+                            if (cleanHeaderText) {
+                                const fullLink = `${file.path}#${headerText}`;
+                                fileContent.push(`<p class="header-link header-level-${level}"><a class="internal-link" data-href="${fullLink}">${cleanHeaderText}</a></p>`);
+                                fileHasContent = true;
+                            }
+                        }
+                    }
+                }
+                
+                if (fileContent.length > 0) {
+                    return {
+                        path: file.path,
+                        basename: file.basename,
+                        content: fileContent.join('')
+                    };
+                } else {
+                    return null;
+                }
+            } catch (error) {
+                return null;
+            }
+        };
+
+        const batchSize = 10;
+        const fragment = document.createDocumentFragment();
+
+        for (let i = 0; i < totalFiles && isGenerating; i += batchSize) {
+            const batch = files.slice(i, i + batchSize);
+            const results = await Promise.all(batch.map(processFile));
+            
+            results.forEach(result => {
+                if (result) {
+                    const fileContainer = fragment.appendChild(document.createElement('div'));
+                    const fileHeader = fileContainer.appendChild(document.createElement('div'));
+                    fileHeader.className = 'file-header';
+                    const toggleButton = fileHeader.appendChild(document.createElement('button'));
+                    toggleButton.textContent = '▼';
+                    toggleButton.className = 'toggle-button';
+                    const fileLink = fileHeader.appendChild(document.createElement('a'));
+                    fileLink.href = result.path;
+                    fileLink.className = 'internal-link';
+                    fileLink.textContent = result.basename;
+                    const contentDiv = fileContainer.appendChild(document.createElement('div'));
+                    contentDiv.className = 'file-content';
+                    contentDiv.innerHTML = result.content;
+
+                    toggleButton.addEventListener('click', () => {
+                        contentDiv.style.display = contentDiv.style.display === 'none' ? 'block' : 'none';
+                        toggleButton.textContent = contentDiv.style.display === 'none' ? '▶' : '▼';
+                    });
+                }
+            });
+
+            processedFiles += batch.length;
+            updateProgress();
+            
+            outputContainer.appendChild(fragment);
+            
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        if (fragment.children.length === 0) {
+            const noResultsMessage = fragment.appendChild(document.createElement('p'));
+            noResultsMessage.textContent = 'Не найдено подходящих заголовков в выбранной папке.';
+        }
+
+        progressContainer.style.display = 'none';
+        generateButton.textContent = 'Сгенерировать';
+        isGenerating = false;
+
+        processInternalLinks();
+        addInternalLinkClickHandler();
+        setupHoverPreview();
+
+    } catch (error) {
+        isGenerating = false;
+        generateButton.textContent = 'Сгенерировать';
+        progressText.textContent = 'Произошла ошибка';
+    }
+}
+
+function addInternalLinkClickHandler() {
+    outputContainer.addEventListener('click', async (event) => {
+        const link = event.target.closest('.internal-link');
+        if (link) {
+            event.preventDefault();
+            const linktext = link.dataset.linktext;
+            if (linktext) {
+                const [filePath, heading] = linktext.split('#');
+                const file = app.vault.getAbstractFileByPath(filePath);
+                if (file && typeof file.path === 'string') {
+                    const headingExists = await checkHeadingExistence(filePath, heading);
+                    if (headingExists) {
+                        app.workspace.getLeaf().openFile(file).then(() => {
+                            if (heading) {
+                                const headingElement = app.workspace.activeLeaf.view.containerEl.querySelector(`[data-heading="${heading}"]`);
+                                if (headingElement) {
+                                    headingElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }
+                            }
+                        });
+                    } else {
+                        new Notice(`Заголовок не найден: ${decodeURIComponent(heading)}`);
+                    }
+                } else {
+                    new Notice(`Файл не найден или недействителен: ${filePath}`);
+                }
+            }
+        }
+    });
+}
+
+async function checkHeadingExistence(filePath, heading) {
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (file && typeof file.path === 'string') {
+        const content = await app.vault.read(file);
+        const lines = content.split('\n');
+        const decodedHeading = decodeURIComponent(heading).replace(/^#*\s*/, '');
+        const headingRegex = new RegExp(`^#+\\s*${decodedHeading.replace(/[-]/g, '[\\s-]')}`, 'i');
+        return lines.some(line => headingRegex.test(line));
+    }
+    return false;
+}
+
+function processInternalLinks() {
+    const links = outputContainer.querySelectorAll('.internal-link');
+    links.forEach(link => {
+        const linkHref = link.getAttribute('data-href');
+        if (linkHref) {
+            const [filePath, heading] = linkHref.split('#');
+            const file = app.vault.getAbstractFileByPath(filePath);
+            if (file && typeof file.path === 'string') {
+                link.dataset.linktext = linkHref;
+            } else {
+                link.classList.add('broken-link');
+            }
+        } else {
+            link.classList.add('broken-link');
+        }
+    });
+}
+
+function setupHoverPreview() {
+    const workspace = app.workspace;
+    outputContainer.addEventListener('mouseover', (event) => {
+        const target = event.target.closest('.internal-link');
+        if (target && !target.classList.contains('broken-link')) {
+            const linktext = target.dataset.linktext;
+            if (linktext) {
+                const [filePath, heading] = linktext.split('#');
+                workspace.trigger('hover-link:hover-link', {
+                    event,
+                    source: 'preview',
+                    hoverParent: outputContainer,
+                    targetEl: target,
+                    linktext: heading,
+                    sourcePath: filePath
+                });
+            }
+        }
+    });
 }
 
 // Обработчик события для кнопки генерации
 generateButton.addEventListener('click', async () => {
     if (!isGenerating) {
         generateButton.textContent = 'Остановить';
+        try {
+            await generateTOC();
+        } catch (error) {
+            isGenerating = false;
+            generateButton.textContent = 'Сгенерировать';
+            progressText.textContent = 'Произошла ошибка';
+        }
+    } else {
+        isGenerating = false;
     }
-    await generateTOC();
 });
-```
