@@ -21,13 +21,41 @@ const header = mainContainer.createEl('h2', { text: 'Генератор огла
 // Создаем контейнер для элементов управления
 const controlsContainer = mainContainer.createEl('div', { cls: 'toc-controls' });
 
-// Создаем выпадающий список для выбора папки
-const folderSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
+// Создаем выпадающий список для выбора режима
+const modeSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
+modeSelectContainer.createEl('label', { text: 'Режим:', for: 'mode-select' });
+const modeSelect = modeSelectContainer.createEl('select', { id: 'mode-select' });
+['По папкам', 'По файлам', 'Текущий файл'].forEach(mode => {
+    modeSelect.createEl('option', { value: mode, text: mode });
+});
+
+// Создаем контейнер для выбора папки
+const folderSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
 folderSelectContainer.createEl('label', { text: 'Выберите папку:', for: 'folder-select' });
 const folderSelect = folderSelectContainer.createEl('select', { id: 'folder-select' });
 getFolders().forEach(folder => {
     folderSelect.createEl('option', { value: folder, text: folder });
 });
+
+// Создаем контейнер для выбора файлов
+const fileSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
+fileSelectContainer.createEl('label', { text: 'Выберите файлы:', for: 'file-select' });
+const fileSelect = fileSelectContainer.createEl('select', { id: 'file-select', multiple: true });
+
+// Функция для получения списка файлов
+function getFiles() {
+    return app.vault.getMarkdownFiles().map(f => f.path);
+}
+
+// Заполняем список файлов
+getFiles().forEach(file => {
+    fileSelect.createEl('option', { value: file, text: file });
+});
+
+// Создаем контейнер для отображения текущего файла
+const currentFileContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
+currentFileContainer.createEl('label', { text: 'Текущий файл:', for: 'current-file' });
+const currentFileDisplay = currentFileContainer.createEl('div', { cls: 'current-file-display', id: 'current-file' });
 
 // Создаем выпадающий список для выбора уровня заголовков
 const headerLevelContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
@@ -83,6 +111,10 @@ style.textContent = `
         color: #e0e0e0;
         border: 1px solid #4a4a4a;
         height: 40px;
+    }
+    .toc-select-container select[multiple] {
+        height: auto;
+        min-height: 100px;
     }
     .toc-generate-button {
         padding: 6px 12px;
@@ -151,24 +183,6 @@ style.textContent = `
         color: #ff4a4a;
         text-decoration: line-through;
     }
-`;
-
-// Функция для очистки текста от тегов и лишних пробелов
-function cleanText(text) {
-    return text
-        .replace(/#\s*/, '')
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
-        .replace(/[*_`~]/g, '')
-        .trim();
-}
-
-// Добавляем индикатор прогресса
-const progressContainer = mainContainer.createEl('div', { cls: 'toc-progress-container' });
-const progressBar = progressContainer.createEl('div', { cls: 'toc-progress-bar' });
-const progressText = progressContainer.createEl('div', { cls: 'toc-progress-text' });
-
-// Добавляем стили для индикатора прогресса
-style.textContent += `
     .toc-progress-container {
         margin-top: 10px;
         background-color: #444;
@@ -188,10 +202,68 @@ style.textContent += `
         margin-top: 5px;
         color: #e0e0e0;
     }
+    .hidden {
+        display: none;
+    }
+    .current-file-display {
+        width: 100%;
+        padding: 8px;
+        border-radius: 4px;
+        background-color: #3a3a3a;
+        color: #e0e0e0;
+        border: 1px solid #4a4a4a;
+        height: 40px;
+        line-height: 24px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 `;
+
+// Функция для очистки текста от тегов и лишних пробелов
+function cleanText(text) {
+    return text
+        .replace(/#\s*/, '')
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+        .replace(/[*_`~]/g, '')
+        .trim();
+}
+
+// Добавляем индикатор прогресса
+const progressContainer = mainContainer.createEl('div', { cls: 'toc-progress-container' });
+const progressBar = progressContainer.createEl('div', { cls: 'toc-progress-bar' });
+const progressText = progressContainer.createEl('div', { cls: 'toc-progress-text' });
 
 // Глобальная переменная для отслеживания состояния генерации
 let isGenerating = false;
+
+// Функция для обновления видимости элементов управления
+function updateControlsVisibility() {
+    const mode = modeSelect.value;
+    folderSelectContainer.classList.toggle('hidden', mode !== 'По папкам');
+    fileSelectContainer.classList.toggle('hidden', mode !== 'По файлам');
+    currentFileContainer.classList.toggle('hidden', mode !== 'Текущий файл');
+    
+    if (mode === 'Текущий файл') {
+        const activeLeaf = app.workspace.getMostRecentLeaf();
+        if (activeLeaf && activeLeaf.view && activeLeaf.view.getViewType() === 'markdown' && activeLeaf.view.file) {
+            currentFileDisplay.textContent = activeLeaf.view.file.name;
+        } else {
+            currentFileDisplay.textContent = 'Нет активного Markdown-файла';
+        }
+        // Перемещаем currentFileContainer перед headerLevelContainer
+        controlsContainer.insertBefore(currentFileContainer, headerLevelContainer);
+    } else {
+        // Возвращаем currentFileContainer в конец controlsContainer
+        controlsContainer.appendChild(currentFileContainer);
+    }
+}
+
+// Обработчик изменения режима
+modeSelect.addEventListener('change', updateControlsVisibility);
+
+// Инициализация видимости элементов управления
+updateControlsVisibility();
 
 // Оптимизированная функция генерации оглавления
 async function generateTOC() {
@@ -205,26 +277,48 @@ async function generateTOC() {
 
         isGenerating = true;
         generateButton.textContent = 'Остановить';
-        const folderPath = folderSelect.value;
+        const mode = modeSelect.value;
         const maxHeaderLevel = parseInt(headerLevelSelect.value);
         
-        if (!folderPath) {
+        let files;
+        switch (mode) {
+            case 'По папкам':
+                const folderPath = folderSelect.value;
+                files = app.vault.getFiles().filter(file => {
+                    const relativePath = file.path.slice(folderPath.length);
+                    const isInFolder = file.path.startsWith(folderPath);
+                    const isMarkdown = file.extension === 'md';
+                    const isDirectChild = relativePath.startsWith('/') || relativePath === '';
+                    return isInFolder && isMarkdown && isDirectChild;
+                });
+                break;
+            case 'По файлам':
+                const selectedFiles = Array.from(fileSelect.selectedOptions).map(option => option.value);
+                files = selectedFiles.map(path => app.vault.getAbstractFileByPath(path)).filter(file => file && file.extension === 'md');
+                break;
+            case 'Текущий файл':
+                const activeLeaf = app.workspace.getMostRecentLeaf();
+                if (activeLeaf && activeLeaf.view && activeLeaf.view.getViewType() === 'markdown' && activeLeaf.view.file) {
+                    const activeFile = activeLeaf.view.file;
+                    files = [activeFile];
+                    currentFileDisplay.textContent = activeFile.name;
+                } else {
+                    files = [];
+                    currentFileDisplay.textContent = 'Нет активного Markdown-файла';
+                    new Notice('На главной панели не открыт Markdown-файл');
+                }
+                break;
+        }
+        
+        if (files.length === 0) {
             isGenerating = false;
             generateButton.textContent = 'Сгенерировать';
+            new Notice('Не выбрано ни одного подходящего файла для генерации оглавления');
             return;
         }
         
         outputContainer.empty();
         
-        const files = app.vault.getFiles().filter(file => {
-            const relativePath = file.path.slice(folderPath.length);
-            const isInFolder = file.path.startsWith(folderPath);
-            const isMarkdown = file.extension === 'md';
-            const isDirectChild = relativePath.startsWith('/') || relativePath === '';
-            
-            return isInFolder && isMarkdown && isDirectChild;
-        });
-
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
         progressText.textContent = 'Подготовка...';
@@ -340,6 +434,7 @@ async function generateTOC() {
         isGenerating = false;
         generateButton.textContent = 'Сгенерировать';
         progressText.textContent = 'Произошла ошибка';
+        console.error('Ошибка при генерации оглавления:', error);
     }
 }
 
@@ -440,3 +535,4 @@ generateButton.addEventListener('click', async () => {
         isGenerating = false;
     }
 });
+
