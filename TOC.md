@@ -19,22 +19,22 @@ const mainContainer = container.createEl('div', { cls: 'toc-main-container' });
 const controlsContainer = mainContainer.createEl('div', { cls: 'toc-controls' });
 
 // Создаем выпадающий список для выбора режима
-const modeSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
+const modeSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container mode-select' });
 modeSelectContainer.createEl('label', { text: 'Режим:', for: 'mode-select' });
 const modeSelect = modeSelectContainer.createEl('select', { id: 'mode-select' });
 ['По папкам', 'По файлам', 'Текущий файл'].forEach(mode => {
     modeSelect.createEl('option', { value: mode, text: mode });
 });
 
-// Создаем контейнер для выбора папки
+// С��даем контейнр для выбора ппки
 const folderSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
 const folderInput = createAutocompleteInput(folderSelectContainer, 'Выберите папку:', 'folder-select', 'Введите путь к папке', getFolders);
 
 // Создаем контейнер для выбора файлов
 const fileSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
-const fileInput = createAutocompleteInput(fileSelectContainer, 'Выберите файлы:', 'file-select', 'Введите пути к файлам через запятую', getFiles);
+const fileInput = createAutocompleteInput(fileSelectContainer, 'Выберите файлы:', 'file-select', 'Введите пути к файлам через зпяу��', getFiles);
 
-// Функция для получения списка файлов
+// Функция для олучения списка файлов
 function getFiles() {
     return app.vault.getMarkdownFiles().map(f => f.path);
 }
@@ -45,38 +45,44 @@ currentFileContainer.createEl('label', { text: 'Текущий файл:', for: 
 const currentFileDisplay = currentFileContainer.createEl('div', { cls: 'current-file-display', id: 'current-file' });
 
 // Создаем выпадающий список для выбора уровня заголовков
-const headerLevelContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
+const headerLevelContainer = controlsContainer.createEl('div', { cls: 'toc-select-container header-level-select' });
 headerLevelContainer.createEl('label', { text: 'Уровень заголовков:', for: 'header-level-select' });
 const headerLevelSelect = headerLevelContainer.createEl('select', { id: 'header-level-select' });
 for (let i = 1; i <= 6; i++) {
-    headerLevelSelect.createEl('option', { value: i, text: `До уровня ${i}` });
+    headerLevelSelect.createEl('option', { value: i, text: `До ${i}` });
 }
 
-// Добавьте эти элементы после выпадающего списка для выбора уровня заголовков
-const numberedListContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
-const numberedListCheckbox = numberedListContainer.createEl('input', { type: 'checkbox', id: 'numbered-list-checkbox' });
-numberedListContainer.createEl('label', { text: 'Нумерованные списки', for: 'numbered-list-checkbox' });
-const numberedListLevelSelect = numberedListContainer.createEl('select', { id: 'numbered-list-level-select', cls: 'hidden' });
+// Обновляем создание контейнеров для нумерованных и маркированных списков
+const numberedListContainer = controlsContainer.createEl('div', { cls: 'toc-select-container list-container' });
+const numberedListWrapper = numberedListContainer.createEl('div', { cls: 'checkbox-wrapper' });
+const numberedListCheckbox = numberedListWrapper.createEl('input', { type: 'checkbox', id: 'numbered-list-checkbox' });
+numberedListWrapper.createEl('label', { text: 'Нумерованные', for: 'numbered-list-checkbox' });
+const numberedListLevelSelect = numberedListContainer.createEl('select', { id: 'numbered-list-level-select', cls: 'list-level-select' });
 for (let i = 1; i <= 6; i++) {
-    numberedListLevelSelect.createEl('option', { value: i, text: `До уровня ${i}` });
+    numberedListLevelSelect.createEl('option', { value: i, text: `До ${i}` });
 }
 
-const bulletListContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
-const bulletListCheckbox = bulletListContainer.createEl('input', { type: 'checkbox', id: 'bullet-list-checkbox' });
-bulletListContainer.createEl('label', { text: 'Маркированные списки', for: 'bullet-list-checkbox' });
-const bulletListLevelSelect = bulletListContainer.createEl('select', { id: 'bullet-list-level-select', cls: 'hidden' });
+const bulletListContainer = controlsContainer.createEl('div', { cls: 'toc-select-container list-container' });
+const bulletListWrapper = bulletListContainer.createEl('div', { cls: 'checkbox-wrapper' });
+const bulletListCheckbox = bulletListWrapper.createEl('input', { type: 'checkbox', id: 'bullet-list-checkbox' });
+bulletListWrapper.createEl('label', { text: 'Маркированные', for: 'bullet-list-checkbox' });
+const bulletListLevelSelect = bulletListContainer.createEl('select', { id: 'bullet-list-level-select', cls: 'list-level-select' });
 for (let i = 1; i <= 6; i++) {
-    bulletListLevelSelect.createEl('option', { value: i, text: `До уровня ${i}` });
+    bulletListLevelSelect.createEl('option', { value: i, text: `До ${i}` });
 }
 
-// Добавьте обработчики событий для чекбоксов
+// Обновляем обработчики событий ��ля чекбоксов и инициализируем видимость выпадающих списков
 numberedListCheckbox.addEventListener('change', () => {
-    numberedListLevelSelect.classList.toggle('hidden', !numberedListCheckbox.checked);
+    numberedListLevelSelect.style.display = numberedListCheckbox.checked ? 'inline-block' : 'none';
 });
 
 bulletListCheckbox.addEventListener('change', () => {
-    bulletListLevelSelect.classList.toggle('hidden', !bulletListCheckbox.checked);
+    bulletListLevelSelect.style.display = bulletListCheckbox.checked ? 'inline-block' : 'none';
 });
+
+// Инициализация видимости выпадающих списков
+numberedListLevelSelect.style.display = 'none';
+bulletListLevelSelect.style.display = 'none';
 
 // Создаем кнопку генерации
 const generateButton = controlsContainer.createEl('button', { cls: 'toc-generate-button', text: 'Сгенерировать' });
@@ -96,31 +102,30 @@ style.textContent = `
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
     .toc-controls {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 16px;
         margin-bottom: 24px;
-        align-items: flex-end;
     }
     .toc-select-container {
-        flex: 1;
-        min-width: 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
     .toc-select-container label {
-        display: block;
-        margin-bottom: 8px;
-        color: var(--text-muted);
         font-size: 14px;
+        font-weight: 600;
+        color: var(--text-normal);
     }
     .toc-select-container select,
-    .toc-select-container input[type="text"] {
+    .toc-select-container input[type="text"],
+    .current-file-display {
         width: 100%;
         padding: 10px 12px;
-        border-radius: 8px;
+        border-radius: 6px;
         background-color: var(--background-secondary);
         color: var(--text-normal);
         border: 1px solid var(--background-modifier-border);
-        height: 40px;
         font-size: 14px;
         transition: all 0.3s ease;
     }
@@ -130,17 +135,35 @@ style.textContent = `
         border-color: var(--interactive-accent);
         box-shadow: 0 0 0 2px var(--interactive-accent-hover);
     }
-    .toc-generate-button {
-        padding: 10px 16px;
-        height: 40px;
+    .list-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .list-container .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .list-container .checkbox-wrapper label {
         font-size: 14px;
+        font-weight: normal;
+    }
+    .list-level-select {
+        width: 100%;
+    }
+    .toc-generate-button {
+        grid-column: 1 / -1;
+        justify-self: start;
+        padding: 10px 20px;
+        font-size: 16px;
         background-color: var(--interactive-accent);
         color: var(--text-on-accent);
         border: none;
-        border-radius: 8px;
+        border-radius: 6px;
         cursor: pointer;
         transition: background-color 0.3s ease;
-        align-self: flex-end;
+        font-weight: 600;
     }
     .toc-generate-button:hover {
         background-color: var(--interactive-accent-hover);
@@ -148,152 +171,77 @@ style.textContent = `
     .toc-output {
         background-color: var(--background-secondary);
         border-radius: 8px;
-        padding: 16px;
+        padding: 20px;
         color: var(--text-normal);
         max-height: 600px;
         overflow-y: auto;
+        font-size: 14px;
+        line-height: 1.6;
     }
-    .toc-output p {
-        margin: 0;
-        padding: 0;
+    .toc-output .file-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .toc-output .toggle-button {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0 8px;
+        transition: color 0.2s ease;
+    }
+    .toc-output .toggle-button:hover {
+        color: var(--text-normal);
     }
     .toc-output .file-link {
-        font-weight: bold;
-        margin-top: 12px;
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--text-normal);
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+    .toc-output .file-link:hover {
+        color: var(--text-accent);
     }
     .toc-output .header-link {
         display: block;
         padding: 4px 0;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.2s ease;
     }
-    .toc-output .header-level-1 { margin-left: 0; }
+    .toc-output .header-link:hover {
+        color: var(--text-accent);
+    }
+    .toc-output .header-level-1 { margin-left: 0; font-weight: 600; }
     .toc-output .header-level-2 { margin-left: 16px; }
     .toc-output .header-level-3 { margin-left: 32px; }
     .toc-output .header-level-4 { margin-left: 48px; }
     .toc-output .header-level-5 { margin-left: 64px; }
     .toc-output .header-level-6 { margin-left: 80px; }
-    .toc-output a {
-        color: var(--text-accent);
-        text-decoration: none;
-        transition: color 0.2s ease;
-    }
-    .toc-output a:hover {
-        color: var(--text-accent-hover);
-    }
-    .file-content {
-        margin-left: 16px;
-    }
-    .toggle-button {
-        background: none;
-        border: none;
-        color: var(--text-accent);
-        cursor: pointer;
-        font-size: 16px;
-        padding: 0 8px;
-        transition: color 0.2s ease;
-    }
-    .toggle-button:hover {
-        color: var(--text-accent-hover);
-    }
-    .file-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-    }
-    .file-header a {
-        flex-grow: 1;
-    }
-    .broken-link {
-        color: var(--text-error);
-        text-decoration: line-through;
-    }
     .toc-progress-container {
         margin-top: 16px;
         background-color: var(--background-modifier-border);
-        border-radius: 8px;
-        padding: 4px;
-        display: none;
+        border-radius: 6px;
+        overflow: hidden;
     }
     .toc-progress-bar {
         height: 8px;
         background-color: var(--interactive-accent);
-        border-radius: 4px;
-        width: 0%;
         transition: width 0.3s ease-in-out;
     }
     .toc-progress-text {
         text-align: center;
         margin-top: 8px;
         color: var(--text-muted);
-        font-size: 12px;
-    }
-    .hidden {
-        display: none;
-    }
-    .current-file-display {
-        width: 100%;
-        padding: 10px 12px;
-        border-radius: 8px;
-        background-color: var(--background-secondary);
-        color: var(--text-normal);
-        border: 1px solid var(--background-modifier-border);
-        height: 40px;
-        line-height: 20px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
         font-size: 14px;
     }
-    .autocomplete-container {
-        position: relative;
-    }
-    .autocomplete-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background-color: var(--background-secondary);
-        border: 1px solid var(--background-modifier-border);
-        border-top: none;
-        max-height: 200px;
-        overflow-y: auto;
-        z-index: 1000;
-        border-radius: 0 0 8px 8px;
-    }
-    .autocomplete-dropdown li {
-        padding: 8px 12px;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-    .autocomplete-dropdown li:hover {
-        background-color: var(--background-modifier-hover);
-    }
-    .autocomplete-active {
-        background-color: var(--interactive-accent) !important;
-        color: var(--text-on-accent);
-    }
-    .toc-output ol, .toc-output ul {
-        margin-left: 20px;
-        padding-left: 0;
-    }
-    .toc-output li {
-        margin-bottom: 4px;
-    }
-    .toc-output .list-level-1 { margin-left: 0; }
-    .toc-output .list-level-2 { margin-left: 16px; }
-    .toc-output .list-level-3 { margin-left: 32px; }
-    .toc-output .list-level-4 { margin-left: 48px; }
-    .toc-output .list-level-5 { margin-left: 64px; }
-    .toc-output .list-level-6 { margin-left: 80px; }
-    .toc-select-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .toc-select-container input[type="checkbox"] {
-        margin-right: 4px;
-    }
-    .toc-select-container select {
-        margin-left: 8px;
+    @media (max-width: 768px) {
+        .toc-controls {
+            grid-template-columns: 1fr;
+        }
     }
 `;
 
@@ -317,22 +265,17 @@ let isGenerating = false;
 // Функция для обновления видимости элементов управления
 function updateControlsVisibility() {
     const mode = modeSelect.value;
-    folderSelectContainer.classList.toggle('hidden', mode !== 'По папкам');
-    fileSelectContainer.classList.toggle('hidden', mode !== 'По файлам');
-    currentFileContainer.classList.toggle('hidden', mode !== 'Текущий файл');
+    folderSelectContainer.style.display = mode === 'По папкам' ? 'flex' : 'none';
+    fileSelectContainer.style.display = mode === 'По файлам' ? 'flex' : 'none';
+    currentFileContainer.style.display = mode === 'Текущий файл' ? 'flex' : 'none';
     
     if (mode === 'Текущий файл') {
         const activeLeaf = app.workspace.getMostRecentLeaf();
         if (activeLeaf && activeLeaf.view && activeLeaf.view.getViewType() === 'markdown' && activeLeaf.view.file) {
             currentFileDisplay.textContent = activeLeaf.view.file.name;
         } else {
-            currentFileDisplay.textContent = 'Нет активного Markdown-файла';
+            currentFileDisplay.textContent = 'Нет активноо Markdown-файла';
         }
-        // Перемещаем currentFileContainer перед headerLevelContainer
-        controlsContainer.insertBefore(currentFileContainer, headerLevelContainer);
-    } else {
-        // Возвращаем currentFileContainer в конец controlsContainer
-        controlsContainer.appendChild(currentFileContainer);
     }
 }
 
@@ -419,8 +362,8 @@ async function generateTOC() {
                 const content = await app.vault.read(file);
                 const lines = content.split('\n');
                 let insideCodeBlock = false;
+                let currentList = null;
                 let currentListLevel = 0;
-                let listType = null; // 'numbered' или 'bullet'
 
                 for (const line of lines) {
                     if (line.trim().startsWith('```')) {
@@ -431,8 +374,11 @@ async function generateTOC() {
                     if (insideCodeBlock) continue;
                     
                     if (line.trim() === '') {
-                        currentListLevel = 0;
-                        listType = null;
+                        if (currentList) {
+                            fileContent.push(`</${currentList}>`);
+                            currentList = null;
+                            currentListLevel = 0;
+                        }
                         continue;
                     }
 
@@ -447,25 +393,43 @@ async function generateTOC() {
                                 fileHasContent = true;
                             }
                         }
-                        currentListLevel = 0;
-                        listType = null;
+                        if (currentList) {
+                            fileContent.push(`</${currentList}>`);
+                            currentList = null;
+                            currentListLevel = 0;
+                        }
                     } else if (line.match(/^(\s*)([-*+]|\d+\.)\s/)) {
                         const match = line.match(/^(\s*)([-*+]|\d+\.)\s/);
-                        const indentLevel = Math.floor(match[1].length / 2) + 1;
-                        const newListType = match[2].match(/\d+\./) ? 'numbered' : 'bullet';
+                        const indent = match[1];
+                        const listType = match[2].match(/\d+\./) ? 'ol' : 'ul';
                         
-                        const maxAllowedLevel = newListType === 'numbered' ? maxNumberedListLevel : maxBulletListLevel;
+                        // Считаем уровень вложенности на основе количества пробелов
+                        const indentLevel = Math.floor(indent.length / 2) + 1;
+                        
+                        const maxAllowedLevel = listType === 'ol' ? maxNumberedListLevel : maxBulletListLevel;
                         
                         if (indentLevel <= maxAllowedLevel && 
-                            ((newListType === 'numbered' && includeNumberedLists) || 
-                             (newListType === 'bullet' && includeBulletLists))) {
-                            if (listType !== newListType || indentLevel !== currentListLevel) {
-                                if (currentListLevel > 0) {
-                                    fileContent.push(`</${listType === 'numbered' ? 'ol' : 'ul'}>`.repeat(currentListLevel));
+                            ((listType === 'ol' && includeNumberedLists) || 
+                             (listType === 'ul' && includeBulletLists))) {
+                            
+                            // Закрываем ��с�� списки более глубокого уровня
+                            while (currentListLevel > indentLevel) {
+                                fileContent.push(`</${currentList}>`);
+                                currentListLevel--;
+                            }
+                            
+                            // Открываем новые списки, если необходимо
+                            if (currentListLevel < indentLevel) {
+                                while (currentListLevel < indentLevel) {
+                                    currentList = listType;
+                                    currentListLevel++;
+                                    fileContent.push(`<${listType} class="list-level-${currentListLevel}">`);
                                 }
-                                listType = newListType;
-                                currentListLevel = indentLevel;
-                                fileContent.push(`<${listType === 'numbered' ? 'ol' : 'ul'} class="list-level-${indentLevel}">`);
+                            } else if (currentList !== listType) {
+                                // Если тип списка изменился на том же уровне, зарываем старый и открываем новый
+                                fileContent.push(`</${currentList}>`);
+                                currentList = listType;
+                                fileContent.push(`<${listType} class="list-level-${currentListLevel}">`);
                             }
                             
                             const listItemText = cleanText(line.replace(/^(\s*)([-*+]|\d+\.)\s/, ''));
@@ -475,16 +439,19 @@ async function generateTOC() {
                             }
                         }
                     } else {
-                        if (currentListLevel > 0) {
-                            fileContent.push(`</${listType === 'numbered' ? 'ol' : 'ul'}>`.repeat(currentListLevel));
-                            currentListLevel = 0;
-                            listType = null;
+                        // Закрываем все открытые списки при встрече не-спичного элемента
+                        while (currentListLevel > 0) {
+                            fileContent.push(`</${currentList}>`);
+                            currentListLevel--;
                         }
+                        currentList = null;
                     }
                 }
 
-                if (currentListLevel > 0) {
-                    fileContent.push(`</${listType === 'numbered' ? 'ol' : 'ul'}>`.repeat(currentListLevel));
+                // В конце обработки файла
+                while (currentListLevel > 0) {
+                    fileContent.push(`</${currentList}>`);
+                    currentListLevel--;
                 }
                 
                 if (fileContent.length > 0) {
@@ -497,6 +464,7 @@ async function generateTOC() {
                     return null;
                 }
             } catch (error) {
+                console.error('Error processing file:', file.path, error);
                 return null;
             }
         };
@@ -541,7 +509,7 @@ async function generateTOC() {
 
         if (fragment.children.length === 0) {
             const noResultsMessage = fragment.appendChild(document.createElement('p'));
-            noResultsMessage.textContent = 'Не найдено подходящих заголовков в выбранной папке.';
+            noResultsMessage.textContent = 'Н найдено подходящих заголовков в выбранной папке.';
         }
 
         progressContainer.style.display = 'none';
@@ -603,24 +571,6 @@ async function checkHeadingExistence(filePath, heading) {
     return false;
 }
 
-function processInternalLinks() {
-    const links = outputContainer.querySelectorAll('.internal-link');
-    links.forEach(link => {
-        const linkHref = link.getAttribute('data-href');
-        if (linkHref) {
-            const [filePath, heading] = linkHref.split('#');
-            const file = app.vault.getAbstractFileByPath(filePath);
-            if (file && typeof file.path === 'string') {
-                link.dataset.linktext = linkHref;
-            } else {
-                link.classList.add('broken-link');
-            }
-        } else {
-            link.classList.add('broken-link');
-        }
-    });
-}
-
 function setupHoverPreview() {
     const workspace = app.workspace;
     outputContainer.addEventListener('mouseover', (event) => {
@@ -645,7 +595,7 @@ function setupHoverPreview() {
 // Обработчик события для кнопки генерации
 generateButton.addEventListener('click', async () => {
     if (!isGenerating) {
-        generateButton.textContent = 'Остановить';
+        generateButton.textContent = 'Осановить';
         try {
             await generateTOC();
         } catch (error) {
@@ -694,13 +644,14 @@ function createAutocompleteInput(container, labelText, id, placeholder, getItems
                     dropdown.children[currentFocus].click();
                 }
             }
+            hideDropdown(dropdown);
         }
     });
 
-    document.addEventListener('click', (e) => {
-        if (!inputContainer.contains(e.target)) {
-            dropdown.classList.add('hidden');
-        }
+    // Добавляем обработчик события blur для поля ввода
+    input.addEventListener('blur', () => {
+        // Используем setTimeout, чтобы дать время для обработки клика по элементу выпадающего списка
+        setTimeout(() => hideDropdown(dropdown), 200);
     });
 
     function addActive(items) {
@@ -726,13 +677,55 @@ function updateDropdown(dropdown, items, input) {
         items.forEach(item => {
             const li = dropdown.createEl('li');
             li.textContent = item;
-            li.addEventListener('click', () => {
+            li.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Предотвращаем потерю фокуса полем ввода
                 input.value = item;
-                dropdown.classList.add('hidden');
+                hideDropdown(dropdown);
             });
         });
-        dropdown.classList.remove('hidden');
+        showDropdown(dropdown);
     } else {
-        dropdown.classList.add('hidden');
+        hideDropdown(dropdown);
     }
 }
+
+// Добавляем новые функции для показа и скрытия выпадающего списка
+function showDropdown(dropdown) {
+    dropdown.classList.remove('hidden');
+}
+
+function hideDropdown(dropdown) {
+    dropdown.classList.add('hidden');
+}
+
+// Добавьте следующие стили в блок style.textContent
+style.textContent += `
+    .autocomplete-container {
+        position: relative;
+    }
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: var(--background-secondary);
+        border: 1px solid var(--background-modifier-border);
+        border-top: none;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        border-radius: 0 0 6px 6px;
+    }
+    .autocomplete-dropdown li {
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    .autocomplete-dropdown li:hover {
+        background-color: var(--background-modifier-hover);
+    }
+    .autocomplete-active {
+        background-color: var(--interactive-accent) !important;
+        color: var(--text-on-accent);
+    }
+`;
