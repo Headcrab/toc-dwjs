@@ -26,21 +26,21 @@ const modeSelect = modeSelectContainer.createEl('select', { id: 'mode-select' })
     modeSelect.createEl('option', { value: mode, text: mode });
 });
 
-// С��даем контейнр для выбора ппки
-const folderSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
+// Создаем контейнер для выбора папки
+const folderSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
 const folderInput = createAutocompleteInput(folderSelectContainer, 'Выберите папку:', 'folder-select', 'Введите путь к папке', getFolders);
 
 // Создаем контейнер для выбора файлов
-const fileSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
-const fileInput = createAutocompleteInput(fileSelectContainer, 'Выберите файлы:', 'file-select', 'Введите пути к файлам через зпяу��', getFiles);
+const fileSelectContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
+const fileInput = createAutocompleteInput(fileSelectContainer, 'Выберите файлы:', 'file-select', 'Введите пути к файлам через запятую', getFiles);
 
-// Функция для олучения списка файлов
+// Функция для получения списка файлов
 function getFiles() {
     return app.vault.getMarkdownFiles().map(f => f.path);
 }
 
 // Создаем контейнер для отображения текущего файла
-const currentFileContainer = controlsContainer.createEl('div', { cls: 'toc-select-container hidden' });
+const currentFileContainer = controlsContainer.createEl('div', { cls: 'toc-select-container' });
 currentFileContainer.createEl('label', { text: 'Текущий файл:', for: 'current-file' });
 const currentFileDisplay = currentFileContainer.createEl('div', { cls: 'current-file-display', id: 'current-file' });
 
@@ -71,7 +71,7 @@ for (let i = 1; i <= 6; i++) {
     bulletListLevelSelect.createEl('option', { value: i, text: `До ${i}` });
 }
 
-// Обновляем обработчики событий ��ля чекбоксов и инициализируем видимость выпадающих списков
+// Обновляем обработчики событий для чекбоксов и инициализируем видимость выпадающих списков
 numberedListCheckbox.addEventListener('change', () => {
     numberedListLevelSelect.style.display = numberedListCheckbox.checked ? 'inline-block' : 'none';
 });
@@ -90,7 +90,7 @@ const generateButton = controlsContainer.createEl('button', { cls: 'toc-generate
 // Создаем контейнер для вывода результата
 const outputContainer = mainContainer.createEl('div', { cls: 'toc-output' });
 
-// Изменяем стили
+// Обновляем стили
 const style = container.createEl('style');
 style.textContent = `
     .toc-main-container {
@@ -111,6 +111,7 @@ style.textContent = `
         display: flex;
         flex-direction: column;
         gap: 8px;
+        margin-bottom: 16px;
     }
     .toc-select-container label {
         font-size: 14px;
@@ -119,7 +120,8 @@ style.textContent = `
     }
     .toc-select-container select,
     .toc-select-container input[type="text"],
-    .current-file-display {
+    .current-file-display,
+    .autocomplete-container input[type="text"] {
         width: 100%;
         padding: 10px 12px;
         border-radius: 6px;
@@ -128,12 +130,15 @@ style.textContent = `
         border: 1px solid var(--background-modifier-border);
         font-size: 14px;
         transition: all 0.3s ease;
+        height: 38px; // Устанавливаем фиксированную высоту
+        line-height: 18px; // Устанавливаем line-height для вертикального центрирования текста
     }
-    .toc-select-container select:focus,
-    .toc-select-container input[type="text"]:focus {
-        outline: none;
-        border-color: var(--interactive-accent);
-        box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+    .current-file-display {
+        display: flex;
+        align-items: center; // Вертикальное центрирование текста
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .list-container {
         display: flex;
@@ -243,6 +248,38 @@ style.textContent = `
             grid-template-columns: 1fr;
         }
     }
+    .autocomplete-container {
+        position: relative;
+        width: 100%;
+    }
+
+    .autocomplete-dropdown {
+        position: absolute;
+        width: 100%;
+        max-height: 200px;
+        overflow-y: auto;
+        background-color: var(--background-primary);
+        border: 1px solid var(--background-modifier-border);
+        border-radius: 6px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        top: 100%; // Располагаем дропдаун под полем ввода
+    }
+
+    .autocomplete-dropdown li {
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    .autocomplete-dropdown li:hover,
+    .autocomplete-dropdown li.autocomplete-active {
+        background-color: var(--background-modifier-hover);
+    }
+
+    .hidden {
+        display: none !important;
+    }
 `;
 
 // Функция для очистки текста от тегов и лишних пробелов
@@ -272,9 +309,9 @@ function updateControlsVisibility() {
     if (mode === 'Текущий файл') {
         const activeLeaf = app.workspace.getMostRecentLeaf();
         if (activeLeaf && activeLeaf.view && activeLeaf.view.getViewType() === 'markdown' && activeLeaf.view.file) {
-            currentFileDisplay.textContent = activeLeaf.view.file.name;
+            currentFileDisplay.textContent = activeLeaf.view.file.path;
         } else {
-            currentFileDisplay.textContent = 'Нет активноо Markdown-файла';
+            currentFileDisplay.textContent = 'Нет активного Markdown-файла';
         }
     }
 }
@@ -323,7 +360,7 @@ async function generateTOC() {
                 if (activeLeaf && activeLeaf.view && activeLeaf.view.getViewType() === 'markdown' && activeLeaf.view.file) {
                     const activeFile = activeLeaf.view.file;
                     files = [activeFile];
-                    currentFileDisplay.textContent = activeFile.name;
+                    currentFileDisplay.textContent = activeFile.path;
                 } else {
                     files = [];
                     currentFileDisplay.textContent = 'Нет активного Markdown-файла';
@@ -412,7 +449,7 @@ async function generateTOC() {
                             ((listType === 'ol' && includeNumberedLists) || 
                              (listType === 'ul' && includeBulletLists))) {
                             
-                            // Закрываем ��с�� списки более глубокого уровня
+                            // Закрываем с списки более глубокого уровня
                             while (currentListLevel > indentLevel) {
                                 fileContent.push(`</${currentList}>`);
                                 currentListLevel--;
@@ -608,7 +645,7 @@ generateButton.addEventListener('click', async () => {
     }
 });
 
-// Функция для создания строки ввода с автодополнением
+// Обновляем функцию createAutocompleteInput
 function createAutocompleteInput(container, labelText, id, placeholder, getItems) {
     container.createEl('label', { text: labelText, for: id });
     const inputContainer = container.createEl('div', { cls: 'autocomplete-container' });
@@ -629,42 +666,41 @@ function createAutocompleteInput(container, labelText, id, placeholder, getItems
     });
 
     input.addEventListener('keydown', (e) => {
+        const items = dropdown.children;
         if (e.key === 'ArrowDown') {
-            currentFocus++;
-            addActive(dropdown.children);
+            currentFocus = (currentFocus + 1) % items.length;
+            addActive(items);
             e.preventDefault();
         } else if (e.key === 'ArrowUp') {
-            currentFocus--;
-            addActive(dropdown.children);
+            currentFocus = (currentFocus - 1 + items.length) % items.length;
+            addActive(items);
             e.preventDefault();
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (currentFocus > -1) {
-                if (dropdown.children[currentFocus]) {
-                    dropdown.children[currentFocus].click();
-                }
+            if (currentFocus > -1 && items[currentFocus]) {
+                items[currentFocus].click();
             }
             hideDropdown(dropdown);
         }
     });
 
-    // Добавляем обработчик события blur для поля ввода
-    input.addEventListener('blur', () => {
-        // Используем setTimeout, чтобы дать время для обработки клика по элементу выпадающего списка
-        setTimeout(() => hideDropdown(dropdown), 200);
+    document.addEventListener('click', (e) => {
+        if (!inputContainer.contains(e.target)) {
+            hideDropdown(dropdown);
+        }
     });
 
     function addActive(items) {
-        if (!items) return false;
         removeActive(items);
-        if (currentFocus >= items.length) currentFocus = 0;
-        if (currentFocus < 0) currentFocus = (items.length - 1);
-        items[currentFocus].classList.add('autocomplete-active');
+        if (items[currentFocus]) {
+            items[currentFocus].classList.add('autocomplete-active');
+            items[currentFocus].scrollIntoView({ block: 'nearest' });
+        }
     }
 
     function removeActive(items) {
-        for (let i = 0; i < items.length; i++) {
-            items[i].classList.remove('autocomplete-active');
+        for (let item of items) {
+            item.classList.remove('autocomplete-active');
         }
     }
 
@@ -678,7 +714,7 @@ function updateDropdown(dropdown, items, input) {
             const li = dropdown.createEl('li');
             li.textContent = item;
             li.addEventListener('mousedown', (e) => {
-                e.preventDefault(); // Предотвращаем потерю фокуса полем ввода
+                e.preventDefault();
                 input.value = item;
                 hideDropdown(dropdown);
             });
@@ -689,7 +725,6 @@ function updateDropdown(dropdown, items, input) {
     }
 }
 
-// Добавляем новые функции для показа и скрытия выпадающего списка
 function showDropdown(dropdown) {
     dropdown.classList.remove('hidden');
 }
@@ -697,35 +732,3 @@ function showDropdown(dropdown) {
 function hideDropdown(dropdown) {
     dropdown.classList.add('hidden');
 }
-
-// Добавьте следующие стили в блок style.textContent
-style.textContent += `
-    .autocomplete-container {
-        position: relative;
-    }
-    .autocomplete-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background-color: var(--background-secondary);
-        border: 1px solid var(--background-modifier-border);
-        border-top: none;
-        max-height: 200px;
-        overflow-y: auto;
-        z-index: 1000;
-        border-radius: 0 0 6px 6px;
-    }
-    .autocomplete-dropdown li {
-        padding: 8px 12px;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-    .autocomplete-dropdown li:hover {
-        background-color: var(--background-modifier-hover);
-    }
-    .autocomplete-active {
-        background-color: var(--interactive-accent) !important;
-        color: var(--text-on-accent);
-    }
-`;
